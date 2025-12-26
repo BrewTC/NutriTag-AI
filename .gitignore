@@ -4,4 +4,4 @@ __pycache__/
 *.pyc
 firebase-admin.json
 .DS_Store
-./streamlit/config.toml
+./streamlit/secrets.toml
