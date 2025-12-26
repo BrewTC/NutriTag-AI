@@ -54,39 +54,52 @@ NUMERIC_FIELDS = ['servingSize', 'calories', 'protein', 'fat', 'saturatedFat', '
 # =========================================================
 # 環境變數與初始化
 # =========================================================
-load_dotenv()
-'''
+load_dotenv()  # 如果在本地端執行，取消註解以載入 .env
+
+# 若在 Streamlit Cloud，優先讀 secrets.toml
+if "azure" in st.secrets:
+    os.environ["AZURE_OPENAI_ENDPOINT"]   = st.secrets["azure"]["endpoint"]
+    os.environ["AZURE_OPENAI_API_KEY"]    = st.secrets["azure"]["api_key"]
+    os.environ["AZURE_DEPLOYMENT_NAME"]   = st.secrets["azure"]["deployment"]
+    os.environ["AZURE_API_VERSION"]       = st.secrets["azure"]["api_version"]
+
 # Firebase 初始化 (使用 st.cache_resource 避免重複初始化)
-@st.cache_resource
-def init_firebase():
-    try:
-        if not firebase_admin._apps:
-            cred_path = os.getenv("FIREBASE_CREDENTIAL_PATH")
-            if not cred_path or not os.path.exists(cred_path):
-                st.error("找不到 Firebase 金鑰檔案，請檢查 .env 設定")
-                return None
-            cred = credentials.Certificate(cred_path)
-            firebase_admin.initialize_app(cred)
-        return firestore.client()
-    except Exception as e:
-        st.error(f"Firebase 連線失敗: {e}")
-        return None
-'''
+# @st.cache_resource
+# def init_firebase():
+#     try:
+#         if not firebase_admin._apps:
+#             cred_path = os.getenv("FIREBASE_CREDENTIAL_PATH")
+#             if not cred_path or not os.path.exists(cred_path):
+#                 st.error("找不到 Firebase 金鑰檔案，請檢查 .env 設定")
+#                 return None
+#             cred = credentials.Certificate(cred_path)
+#             firebase_admin.initialize_app(cred)
+#         return firestore.client()
+#     except Exception as e:
+#         st.error(f"Firebase 連線失敗: {e}")
+#         return None
+
 # Firebase 初始化（支援 Streamlit Cloud）
 @st.cache_resource
 def init_firebase():
     try:
-        # 避免重複初始化
         if not firebase_admin._apps:
 
-            # 讀取 secrets.toml 內的 firebase 欄位
-            firebase_config = dict(st.secrets["firebase"])
-
-            # Streamlit 會把 private_key 轉成單行字串，需還原換行
-            if "private_key" in firebase_config:
+            # 優先：Streamlit Cloud（secrets.toml）
+            if "firebase" in st.secrets:
+                firebase_config = dict(st.secrets["firebase"])
                 firebase_config["private_key"] = firebase_config["private_key"].replace("\\n", "\n")
+                cred = credentials.Certificate(firebase_config)
 
-            cred = credentials.Certificate(firebase_config)
+            else:
+                # 本地端 fallback：使用 FIREBASE_CREDENTIAL_PATH
+                cred_path = os.getenv("FIREBASE_CREDENTIAL_PATH")
+                if not cred_path or not os.path.exists(cred_path):
+                    st.error("找不到 Firebase 金鑰，請確認 secrets.toml 或 .env 設定")
+                    return None
+
+                cred = credentials.Certificate(cred_path)
+
             firebase_admin.initialize_app(cred)
 
         return firestore.client()
