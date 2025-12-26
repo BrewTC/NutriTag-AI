@@ -55,7 +55,7 @@ NUMERIC_FIELDS = ['servingSize', 'calories', 'protein', 'fat', 'saturatedFat', '
 # 環境變數與初始化
 # =========================================================
 load_dotenv()
-
+'''
 # Firebase 初始化 (使用 st.cache_resource 避免重複初始化)
 @st.cache_resource
 def init_firebase():
@@ -70,6 +70,29 @@ def init_firebase():
         return firestore.client()
     except Exception as e:
         st.error(f"Firebase 連線失敗: {e}")
+        return None
+'''
+# Firebase 初始化（支援 Streamlit Cloud）
+@st.cache_resource
+def init_firebase():
+    try:
+        # 避免重複初始化
+        if not firebase_admin._apps:
+
+            # 讀取 secrets.toml 內的 firebase 欄位
+            firebase_config = dict(st.secrets["firebase"])
+
+            # Streamlit 會把 private_key 轉成單行字串，需還原換行
+            if "private_key" in firebase_config:
+                firebase_config["private_key"] = firebase_config["private_key"].replace("\\n", "\n")
+
+            cred = credentials.Certificate(firebase_config)
+            firebase_admin.initialize_app(cred)
+
+        return firestore.client()
+
+    except Exception as e:
+        st.error(f"Firebase 初始化失敗：{e}")
         return None
 
 db = init_firebase()
